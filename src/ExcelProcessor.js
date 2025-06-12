@@ -370,53 +370,97 @@ const downloadTemplate2 = () => {
                 // Per ogni classe, calcola i dati per la tabella
                 const datiPerClasse = {};
 
-                classi.forEach(classe => {
-                    // Filtra i dati per questa classe
-                    const datiClasse = datiComb.filter(row => row[columnMapping.MerchandisingClass] === classe);
+classi.forEach(classe => {
+    const datiClasseOriginale = datiComb.filter(row => row[columnMapping.MerchandisingClass] === classe);
 
-                    // Calcola ORDER QTY e SOLD QTY totali
-                    let orderQtyTotal = 0;
-                    let soldQtyTotal = 0;
+    // Se la classe è "Suits", dividiamo in due sottoclassi
+    if (classe.toLowerCase() === "suits") {
+        const numeriche = [];
+        const alfanumeriche = [];
 
-                    datiClasse.forEach(row => {
-                        const orderQty = Number(row[columnMapping.OrderQty] || 0);
-                        const soldQty = Number(row[columnMapping.SoldQty] || 0);
+        datiClasseOriginale.forEach(row => {
+            const size = row[columnMapping.SizeCode];
+            if (!size) return;
 
-                        orderQtyTotal += orderQty;
-                        soldQtyTotal += soldQty;
-                    });
+            if (!isNaN(parseFloat(size))) {
+                numeriche.push(row);
+            } else {
+                alfanumeriche.push(row);
+            }
+        });
 
-                    // Calcola i dati per dimensione
-                    const datiPerSize = {};
+        const processaSottoclasse = (label, datiClasse) => {
+            let orderQtyTotal = 0;
+            let soldQtyTotal = 0;
+            const datiPerSize = {};
 
-                    datiClasse.forEach(row => {
-                        const size = row[columnMapping.SizeCode];
-                        if (!size) return;
+            datiClasse.forEach(row => {
+                const size = row[columnMapping.SizeCode];
+                const orderQty = Number(row[columnMapping.OrderQty] || 0);
+                const soldQty = Number(row[columnMapping.SoldQty] || 0);
 
-                        if (!datiPerSize[size]) {
-                            datiPerSize[size] = {
-                                orderQty: 0,
-                                soldQty: 0
-                            };
-                        }
+                orderQtyTotal += orderQty;
+                soldQtyTotal += soldQty;
 
-                        datiPerSize[size].orderQty += Number(row[columnMapping.OrderQty] || 0);
-                        datiPerSize[size].soldQty += Number(row[columnMapping.SoldQty] || 0);
-                    });
+                if (!datiPerSize[size]) {
+                    datiPerSize[size] = { orderQty: 0, soldQty: 0 };
+                }
 
-                    // Calcola le percentuali
-                    Object.keys(datiPerSize).forEach(size => {
-                        const sizeData = datiPerSize[size];
-                        sizeData.sellOutPct = soldQtyTotal > 0 ? (sizeData.soldQty / soldQtyTotal) * 100 : 0;
-                        sizeData.sellThroughPct = sizeData.orderQty > 0 ? (sizeData.soldQty / sizeData.orderQty) * 100 : 0;
-                    });
+                datiPerSize[size].orderQty += orderQty;
+                datiPerSize[size].soldQty += soldQty;
+            });
 
-                    datiPerClasse[classe] = {
-                        orderQtyTotal,
-                        soldQtyTotal,
-                        datiPerSize
-                    };
-                });
+            Object.keys(datiPerSize).forEach(size => {
+                const sizeData = datiPerSize[size];
+                sizeData.sellOutPct = soldQtyTotal > 0 ? (sizeData.soldQty / soldQtyTotal) * 100 : 0;
+                sizeData.sellThroughPct = sizeData.orderQty > 0 ? (sizeData.soldQty / sizeData.orderQty) * 100 : 0;
+            });
+
+            datiPerClasse[`${classe} - ${label}`] = {
+                orderQtyTotal,
+                soldQtyTotal,
+                datiPerSize
+            };
+        };
+
+        if (numeriche.length > 0) processaSottoclasse("Number", numeriche);
+        if (alfanumeriche.length > 0) processaSottoclasse("Taglie", alfanumeriche);
+    } else {
+        // Classe standard
+        let orderQtyTotal = 0;
+        let soldQtyTotal = 0;
+        const datiPerSize = {};
+
+        datiClasseOriginale.forEach(row => {
+            const size = row[columnMapping.SizeCode];
+            const orderQty = Number(row[columnMapping.OrderQty] || 0);
+            const soldQty = Number(row[columnMapping.SoldQty] || 0);
+
+            orderQtyTotal += orderQty;
+            soldQtyTotal += soldQty;
+
+            if (!datiPerSize[size]) {
+                datiPerSize[size] = { orderQty: 0, soldQty: 0 };
+            }
+
+            datiPerSize[size].orderQty += orderQty;
+            datiPerSize[size].soldQty += soldQty;
+        });
+
+        Object.keys(datiPerSize).forEach(size => {
+            const sizeData = datiPerSize[size];
+            sizeData.sellOutPct = soldQtyTotal > 0 ? (sizeData.soldQty / soldQtyTotal) * 100 : 0;
+            sizeData.sellThroughPct = sizeData.orderQty > 0 ? (sizeData.soldQty / sizeData.orderQty) * 100 : 0;
+        });
+
+        datiPerClasse[classe] = {
+            orderQtyTotal,
+            soldQtyTotal,
+            datiPerSize
+        };
+    }
+});
+
 
                 datiPerCombinazione[comb] = {
                     classi,
