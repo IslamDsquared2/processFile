@@ -373,65 +373,26 @@ const downloadTemplate2 = () => {
 classi.forEach(classe => {
     const datiClasseOriginale = datiComb.filter(row => row[columnMapping.MerchandisingClass] === classe);
 
-    // Se la classe è "Suits", dividiamo in due sottoclassi
-    if (classe.toLowerCase() === "suits") {
-        const numeriche = [];
-        const alfanumeriche = [];
+    const numeriche = [];
+    const alfanumeriche = [];
 
-        datiClasseOriginale.forEach(row => {
-            const size = row[columnMapping.SizeCode];
-            if (!size) return;
+    datiClasseOriginale.forEach(row => {
+        const size = row[columnMapping.SizeCode];
+        if (!size) return;
 
-            if (!isNaN(parseFloat(size))) {
-                numeriche.push(row);
-            } else {
-                alfanumeriche.push(row);
-            }
-        });
+        if (!isNaN(parseFloat(size))) {
+            numeriche.push(row);
+        } else {
+            alfanumeriche.push(row);
+        }
+    });
 
-        const processaSottoclasse = (label, datiClasse) => {
-            let orderQtyTotal = 0;
-            let soldQtyTotal = 0;
-            const datiPerSize = {};
-
-            datiClasse.forEach(row => {
-                const size = row[columnMapping.SizeCode];
-                const orderQty = Number(row[columnMapping.OrderQty] || 0);
-                const soldQty = Number(row[columnMapping.SoldQty] || 0);
-
-                orderQtyTotal += orderQty;
-                soldQtyTotal += soldQty;
-
-                if (!datiPerSize[size]) {
-                    datiPerSize[size] = { orderQty: 0, soldQty: 0 };
-                }
-
-                datiPerSize[size].orderQty += orderQty;
-                datiPerSize[size].soldQty += soldQty;
-            });
-
-            Object.keys(datiPerSize).forEach(size => {
-                const sizeData = datiPerSize[size];
-                sizeData.sellOutPct = soldQtyTotal > 0 ? (sizeData.soldQty / soldQtyTotal) * 100 : 0;
-                sizeData.sellThroughPct = sizeData.orderQty > 0 ? (sizeData.soldQty / sizeData.orderQty) * 100 : 0;
-            });
-
-            datiPerClasse[`${classe} - ${label}`] = {
-                orderQtyTotal,
-                soldQtyTotal,
-                datiPerSize
-            };
-        };
-
-        if (numeriche.length > 0) processaSottoclasse("Number", numeriche);
-        if (alfanumeriche.length > 0) processaSottoclasse("Taglie", alfanumeriche);
-    } else {
-        // Classe standard
+    const processaSottoclasse = (label, datiClasse) => {
         let orderQtyTotal = 0;
         let soldQtyTotal = 0;
         const datiPerSize = {};
 
-        datiClasseOriginale.forEach(row => {
+        datiClasse.forEach(row => {
             const size = row[columnMapping.SizeCode];
             const orderQty = Number(row[columnMapping.OrderQty] || 0);
             const soldQty = Number(row[columnMapping.SoldQty] || 0);
@@ -453,19 +414,26 @@ classi.forEach(classe => {
             sizeData.sellThroughPct = sizeData.orderQty > 0 ? (sizeData.soldQty / sizeData.orderQty) * 100 : 0;
         });
 
-        datiPerClasse[classe] = {
+        datiPerClasse[`${classe} - ${label}`] = {
             orderQtyTotal,
             soldQtyTotal,
             datiPerSize
         };
-    }
+    };
+
+    if (numeriche.length > 0) processaSottoclasse("Number", numeriche);
+    if (alfanumeriche.length > 0) processaSottoclasse("Taglie", alfanumeriche);
 });
 
 
-                datiPerCombinazione[comb] = {
-                    classi,
-                    datiPerClasse
-                };
+
+
+const classiSuddivise = Object.keys(datiPerClasse).sort();
+
+datiPerCombinazione[comb] = {
+    classi: classiSuddivise,
+    datiPerClasse
+};
             });
 
             setDatiProcessati(datiPerCombinazione);
@@ -476,6 +444,10 @@ classi.forEach(classe => {
             setProcessing(false);
         }
     };
+
+    
+
+    
 
     // Gestisce il cambio di combinazione selezionata
     const handleChangeCombinazione = (e) => {
